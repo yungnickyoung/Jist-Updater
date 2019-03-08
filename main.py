@@ -30,8 +30,8 @@ def serviceReady():
 def updateArticles():
     startTime = time.time()
 
-    # Retrieve all articles from db (using endpoint?)
-    resp = requests.get(url='http://jist-database-api:5003/getArticles')
+    # Retrieve all articles from db
+    resp = requests.get(url='http://jist-database-api:5003/articles')
     if resp.status_code != 200:
         print(bcolors.FAIL + "ERROR: {0} RESPONSE FROM DATABASE API: {1}".format(resp.status_code, resp.text), file=sys.stderr)
         return
@@ -69,7 +69,6 @@ def updateArticles():
         # Check if calculated hash matches stored hash
         if newArticleHash == article['article_hash']: # Hash is the same -> No change in information. Still need to UPDATE to update the last_modified timestamp
             data = {
-                'id': article['id'],
                 'summary_s': article['summary_s'],
                 'summary_m': article['summary_m'],
                 'summary_l': article['summary_l'],
@@ -77,16 +76,16 @@ def updateArticles():
             }
 
             # Update database
-            resp = requests.put(url='http://jist-database-api:5003/updateArticle', json=data)
+            resp = requests.put(url='http://jist-database-api:5003/articles', json=data, params={ "id": article['id'] })
 
             if resp.status_code == 200:
-                print(bcolors.GREEN + "Database response: 201 (Success)" + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.GREEN + "(Unchanged) Database response 201 (Success) - ID: {}".format(article['id']) + bcolors.ENDC, file=sys.stderr)
             elif resp.status_code == 400:
-                print(bcolors.WARNING + "Database response: 400 (Missing data?)" + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.WARNING + "(Unchanged) Database response 400 (Missing data?) - ID: {}".format(article['id']) + bcolors.ENDC, file=sys.stderr)
             elif resp.status_code == 500:
-                print(bcolors.FAIL + "Database response: 500 (Error occurred during UPDATE)" + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.FAIL + "(Unchanged) Database response 500 (Error occurred during UPDATE) - ID: {}".format(article['id']) + bcolors.ENDC, file=sys.stderr)
             else:
-                print(bcolors.FAIL + "Database response: {} (UNUSUAL)".format(resp.status_code) + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.FAIL + "(Unchanged) Database response {0} (UNUSUAL) - ID: {1}".format(resp.status_code, article['id']) + bcolors.ENDC, file=sys.stderr)
 
             try:
                 articlesUnchangedCodeCount[resp.status_code] += 1
@@ -103,7 +102,6 @@ def updateArticles():
             newArticleSummary = resp.json()['summary']
 
             data = {
-                'id': article['id'],
                 'summary_s': newArticleSummary,
                 'summary_m': newArticleSummary,
                 'summary_l': newArticleSummary,
@@ -111,16 +109,16 @@ def updateArticles():
             }
 
             # Update database
-            resp = requests.put(url='http://jist-database-api:5003/updateArticle', json=data)
+            resp = requests.put(url='http://jist-database-api:5003/articles', json=data, params={ "id": article['id'] })
 
             if resp.status_code == 200:
-                print(bcolors.GREEN + "Database response: 201 (Success)" + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.BLUE + "(Changed) Database response 201 (Success) - ID: {}".format(article['id']) + bcolors.ENDC, file=sys.stderr)
             elif resp.status_code == 400:
-                print(bcolors.WARNING + "Database response: 400 (Missing data?)" + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.WARNING + "(Changed) Database response 400 (Missing data?) - ID: {}".format(article['id']) + bcolors.ENDC, file=sys.stderr)
             elif resp.status_code == 500:
-                print(bcolors.FAIL + "Database response: 500 (Error occurred during UPDATE)" + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.FAIL + "(Changed) Database response 500 (Error occurred during UPDATE) - ID: {}".format(article['id']) + bcolors.ENDC, file=sys.stderr)
             else:
-                print(bcolors.FAIL + "Database response: {} (UNUSUAL)".format(resp.status_code) + bcolors.ENDC, file=sys.stderr)
+                print(bcolors.FAIL + "(Changed) Database response {0} (UNUSUAL) - ID: {1}".format(resp.status_code, article['id']) + bcolors.ENDC, file=sys.stderr)
 
             try:
                 articlesChangedCodeCount[resp.status_code] += 1
@@ -133,20 +131,6 @@ def updateArticles():
     endTime = time.time()
     print("\n" + bcolors.BLUE + "Elapsed time: " + str(int((endTime - startTime) / 60)) + " min " + str(int((endTime - startTime) % 60)) + " sec" + bcolors.ENDC, file=sys.stderr)
     sys.stderr.flush()
-
-
-
-
-    # for each article:
-    #   if time last modified < 10 min, skip article
-    #
-    #   Calculate article hash via POST to HTML parser
-    #
-    #   if calculated hash is same as stored hash:
-    #     just UPDATE the time last modified
-    #   else:
-    #     get summay from summary endpoint with new article text
-    #     UPDATE the article entry with new summary, article hash, and time last modified
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5004)
